@@ -1,0 +1,10 @@
+##for DADA2 thing
+
+Cd "folder"
+
+
+conda activate qiime2-amplicon-2024.2
+
+#Exports sequences
+qiime tools export --input-path demux.qza --output-path sequences
+
