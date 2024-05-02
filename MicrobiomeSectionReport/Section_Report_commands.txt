@@ -1,0 +1,119 @@
+
+
+# change directory into Microbiome directory 
+cd /Volumes/Bioinfo/BioInformatics/MicrobiomeSectionReport
+
+# activates the qiime2 environment 
+conda activate qiime2-amplicon-2024.2
+
+# summary of the distribution of sequence qualities. It turns it into a visualization
+qiime demux summarize \
+  --i-data demux.qza \
+  --o-visualization demux.qzv
+
+# use dada2 for quality control & feature table construction 
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs demux.qza \
+  --p-trim-left-f 0 \   
+  --p-trunc-len-f 240 \ 
+  --p-trim-left-r 0 \   
+  --p-trunc-len-r 210 \ 
+  --o-representative-sequences rep-seqs-dada2.qza \
+  --o-table table-dada2.qza \
+  --o-denoising-stats stats-dada2.qza
+
+# changes form .qza to qzv
+qiime metadata tabulate \
+  --m-input-file stats-dada2.qza \
+  --o-visualization stats-dada2.qzv
+
+# renames the files and removes the "-dada2" part 
+mv rep-seqs-dada2.qza rep-seqs.qza
+mv table-dada2.qza table.qza
+
+# creates visual summaries of the data 
+qiime feature-table summarize \
+  --i-table table.qza \
+  --o-visualization table.qzv \
+  --m-sample-metadata-file metadata.txt
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs.qza \
+  --o-visualization rep-seqs.qzv
+
+# creates phylogeny tree for diversity analysis 
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences rep-seqs.qza \
+  --o-alignment aligned-rep-seqs.qza \
+  --o-masked-alignment masked-aligned-rep-seqs.qza \
+  --o-tree unrooted-tree.qza \
+  --o-rooted-tree rooted-tree.qza
+
+# Taxonomic Analysis which allows us to create a visualization of the most closely related species in order to identify our sequence 
+qiime feature-classifier classify-sklearn \
+  --i-classifier gg-13-8-99-515-806-nb-classifier.qza \
+  --i-reads rep-seqs.qza \
+  --o-classification taxonomy.qza
+
+qiime metadata tabulate \
+  --m-input-file taxonomy.qza \
+  --o-visualization taxonomy.qzv
+
+# filters in order to exclude mitochondria and chloroplasts
+qiime taxa filter-table \
+  --i-table table.qza \
+  --i-taxonomy taxonomy.qza \
+  --p-exclude mitochondria,chloroplast \
+  --o-filtered-table table.qza
+
+
+# creates core metrics folder with a sampling depth number found from the visualization of the table.qzv
+qiime diversity core-metrics-phylogenetic \
+  --i-phylogeny rooted-tree.qza \
+  --i-table table.qza \
+  --p-sampling-depth 1098 \
+  --m-metadata-file metadata.txt \ 
+  --output-dir core-metrics-results
+
+
+# alpha diversity significance 
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/shannon_vector.qza \
+  --m-metadata-file metadata.txt \
+  --o-visualization core-metrics-results/shannon_vector.qzv
+
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/observed_features_vector.qza \
+  --m-metadata-file metadata.txt \
+  --o-visualization core-metrics-results/observed_features_vector.qzv
+
+
+# beta diversity significance for sex, population and flock using Bray Curtis dissimilarity
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file metadata.txt \
+  --m-metadata-column sex \
+  --o-visualization core-metrics-results/bray-curtis-sex-significance.qzv \
+  --p-pairwise
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file metadata.txt \
+  --m-metadata-column population \
+  --o-visualization core-metrics-results/bray-curtis-population-significance.qzv\
+  --p-pairwise
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file metadata.txt \
+  --m-metadata-column flock \
+  --o-visualization core-metrics-results/bray-curtis-flock-significance.qzv \
+  --p-pairwise
+
+
+
+
+
+
+
+
+
